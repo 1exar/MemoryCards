@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DG.Tweening;
+using MemoryCards.Scripts.Configs;
 using MemoryCards.Scripts.Services;
 using MemoryCards.Scripts.Spawners;
 using UnityEngine;
@@ -19,15 +21,17 @@ namespace MemoryCards.Scripts.Controllers
         private UIController _ui;
         private ImageService _imageService;
         private CardSpawner _spawner;
+        private GameConfig _config;
         
         private bool _isCheckingPair;
         
         [Inject]
-        public void Construct(UIController ui, CardSpawner spawner, ImageService imageService)
+        public void Construct(UIController ui, CardSpawner spawner, ImageService imageService, GameConfig config)
         {
             _ui = ui;
             _spawner = spawner;
             _imageService = imageService;
+            _config = config;
         }
 
         private async Task StartGame()
@@ -35,10 +39,13 @@ namespace MemoryCards.Scripts.Controllers
             _isCheckingPair = true;
             _pairsCollected = 0;
             _ui.UpdateCounter(_pairsCollected);
+            
+            _imageService.OnSpritesLoaded += HandleSpritesDownload;
 
             var sprites = await _imageService.LoadSpritesAsync();
+            
             var deck = new List<(int, Sprite)>();
-
+            
             for (int i = 0; i < sprites.Count; i++)
             {
                 deck.Add((i, sprites[i]));
@@ -49,9 +56,10 @@ namespace MemoryCards.Scripts.Controllers
 
             _cards = _spawner.SpawnCards(deck, OnCardClicked);
             
-            await Task.Delay(5000);
+            await Task.Delay(_config.ShowDuration);
             
-            gridLayoutGroup.enabled = false;
+            if(gridLayoutGroup)
+                gridLayoutGroup.enabled = false;
             
             foreach (var card in _cards) card.Flip(false);
             
@@ -66,6 +74,11 @@ namespace MemoryCards.Scripts.Controllers
             await StartGame();
         }
 
+        private void HandleSpritesDownload()
+        {
+            _ui.TurnOffLoading();
+        }
+        
         private async void OnCardClicked(CardController card)
         {
             if (_isCheckingPair) return;
@@ -85,7 +98,7 @@ namespace MemoryCards.Scripts.Controllers
 
                 if (_firstCard.Id == _secondCard.Id)
                 {
-                    await Task.Delay(1000);
+                    await Task.Delay(_config.FlipDelay);
                     _firstCard.HideCard();
                     _secondCard.HideCard();
 
@@ -102,7 +115,7 @@ namespace MemoryCards.Scripts.Controllers
                 }
                 else
                 {
-                    await Task.Delay(1000);
+                    await Task.Delay(_config.FlipDelay);
                     _firstCard.Flip(false);
                     _secondCard.Flip(false);
                 }
@@ -121,7 +134,9 @@ namespace MemoryCards.Scripts.Controllers
             _secondCard = null;
             
             _isCheckingPair = true;
-            gridLayoutGroup.enabled = true;
+            
+            if(gridLayoutGroup)
+                gridLayoutGroup.enabled = true;
             
             _pairsCollected = 0;
             _ui.UpdateCounter(_pairsCollected);
@@ -148,9 +163,10 @@ namespace MemoryCards.Scripts.Controllers
                 card.Flip(true);
             }
 
-            await Task.Delay(5000);
+            await Task.Delay(_config.ShowDuration);
 
-            gridLayoutGroup.enabled = false;
+            if(gridLayoutGroup)
+                gridLayoutGroup.enabled = false;
             
             foreach (var card in _cards)
             {
@@ -172,6 +188,12 @@ namespace MemoryCards.Scripts.Controllers
                 int k = rng.Next(n + 1);
                 (list[k], list[n]) = (list[n], list[k]);
             }
+        }
+        
+        private void OnDestroy()
+        {
+            _imageService.OnSpritesLoaded -= HandleSpritesDownload;
+            DOTween.KillAll();
         }
     }
     

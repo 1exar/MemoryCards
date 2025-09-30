@@ -1,22 +1,34 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MemoryCards.Scripts.Configs;
 using UnityEngine;
 using UnityEngine.Networking;
+using Zenject;
 
 namespace MemoryCards.Scripts.Services
 {
     public class ImageService
     {
-        private const string JsonUrl = "https://drive.usercontent.google.com/download?id=1YFYTH6V33YI3lGEKr1RLP-jJlaj0xaFZ&export=download&authuser=0";
+        private readonly string _jsonUrl;
 
-        [System.Serializable]
+        [Inject]
+        public ImageService(GameConfig config)
+        {
+            _jsonUrl = config.JsonUrl;
+        }
+
+        [Serializable]
         public class CardData { public int id; public string url; }
-        [System.Serializable]
+        
+        [Serializable]
         public class CardDataList { public List<CardData> cards; }
+
+        public event Action OnSpritesLoaded;
 
         public async Task<List<Sprite>> LoadSpritesAsync()
         {
-            using (var request = UnityWebRequest.Get(JsonUrl))
+            using (var request = UnityWebRequest.Get(_jsonUrl))
             {
                 await request.SendWebRequest().ToTask();
 
@@ -27,7 +39,9 @@ namespace MemoryCards.Scripts.Services
                 }
 
                 var json = request.downloadHandler.text;
+                
                 Debug.Log(json);
+                
                 var data = JsonUtility.FromJson<CardDataList>(json);
 
                 var sprites = new List<Sprite>();
@@ -50,6 +64,7 @@ namespace MemoryCards.Scripts.Services
                     }
                 }
 
+                OnSpritesLoaded?.Invoke();
                 return sprites;
             }
         }

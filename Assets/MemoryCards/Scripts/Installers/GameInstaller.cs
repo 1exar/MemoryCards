@@ -1,3 +1,4 @@
+using MemoryCards.Scripts.Configs;
 using UnityEngine;
 using Zenject;
 using MemoryCards.Scripts.Controllers;
@@ -13,9 +14,12 @@ namespace MemoryCards.Scripts.Installers
         public Transform gridRoot;
         public GameController gameController;
         public UIController uiController;
+        public GameConfig config;
 
         public override void InstallBindings()
         {
+            Container.Bind<GameConfig>().FromInstance(config).AsSingle();
+
             Container.Bind<ImageService>().AsSingle();
 
             Container.Bind<CardSpawner>().AsSingle()
